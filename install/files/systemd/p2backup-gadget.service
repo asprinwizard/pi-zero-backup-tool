@@ -1,0 +1,14 @@
+[Unit]
+Description=P2 Backup USB gadget (empty LUN)
+DefaultDependencies=no
+After=sys-kernel-config.mount sys-kernel-debug.mount systemd-modules-load.service
+Wants=sys-kernel-config.mount sys-kernel-debug.mount
+Before=p2backup.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/p2backup-gadget boot
+
+[Install]
+WantedBy=sysinit.target

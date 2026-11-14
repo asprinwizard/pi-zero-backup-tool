@@ -1,0 +1,108 @@
+#!/bin/sh
+# P2 Backup USB mass-storage gadget (configfs / libcomposite).
+#
+#   p2backup-gadget create   create the gadget with an EMPTY LUN (no medium)
+#   p2backup-gadget bind     bind to the UDC (only meaningful when ID is floating)
+#   p2backup-gadget unbind   unbind from the UDC
+#   p2backup-gadget boot     create, then bind if the ID pin is floating
+#   p2backup-gadget status   print role, UDC state and LUN file
+#   p2backup-gadget remove   tear the gadget down
+#
+# The main app (gadget.py) owns attaching/detaching the medium at runtime.
+# This script never attaches the data partition.
+set -eu
+
+G=/sys/kernel/config/usb_gadget/p2backup
+LUN=$G/functions/mass_storage.usb0/lun.0
+REGDUMP=/sys/kernel/debug/usb/3f980000.usb/regdump
+
+udc_name() { ls /sys/class/udc 2>/dev/null | head -n1; }
+
+# Prints host | device | unknown, from GOTGCTL bit 16 (ConIDSts).
+role() {
+    if [ -r "$REGDUMP" ]; then
+        v=$(sed -n 's/^GOTGCTL *= *\(0x[0-9a-fA-F]*\).*/\1/p' "$REGDUMP" | head -n1)
+        if [ -n "$v" ]; then
+            if [ $(( v & 0x10000 )) -ne 0 ]; then echo device; else echo host; fi
+            return
+        fi
+    fi
+    echo unknown
+}
+
+serial() {
+    if [ -r /proc/device-tree/serial-number ]; then
+        tr -d '\0' </proc/device-tree/serial-number
+    else
+        awk '/^Serial/ {print $3}' /proc/cpuinfo
+    fi
+}
+
+create() {
+    modprobe libcomposite
+    mountpoint -q /sys/kernel/config || mount -t configfs none /sys/kernel/config
+    [ -d "$G" ] && return 0
+    mkdir -p "$G"
+    echo 0x1d6b >"$G/idVendor"     # Linux Foundation
+    echo 0x0104 >"$G/idProduct"    # Multifunction Composite Gadget
+    echo 0x0100 >"$G/bcdDevice"
+    echo 0x0200 >"$G/bcdUSB"
+    mkdir -p "$G/strings/0x409"
+    serial >"$G/strings/0x409/serialnumber"
+    echo "P2 Backup" >"$G/strings/0x409/manufacturer"
+    echo "P2 Backup Drive" >"$G/strings/0x409/product"
+    mkdir -p "$G/configs/c.1/strings/0x409"
+    echo "Mass Storage" >"$G/configs/c.1/strings/0x409/configuration"
+    echo 500 >"$G/configs/c.1/MaxPower"
+    mkdir -p "$G/functions/mass_storage.usb0"
+    echo 1 >"$G/functions/mass_storage.usb0/stall"
+    echo 1 >"$LUN/removable"
+    echo 0 >"$LUN/ro"
+    echo 0 >"$LUN/cdrom"
+    echo "" >"$LUN/file"           # no medium until the app attaches one
+    ln -s "$G/functions/mass_storage.usb0" "$G/configs/c.1/"
+}
+
+bind() {
+    [ -n "$(cat "$G/UDC" 2>/dev/null)" ] && return 0
+    udc=$(udc_name)
+    [ -n "$udc" ] || { echo "no UDC found (is dtoverlay=dwc2 set?)" >&2; exit 1; }
+    echo "$udc" >"$G/UDC"
+}
+
+unbind() {
+    [ -d "$G" ] || return 0
+    [ -z "$(cat "$G/UDC" 2>/dev/null)" ] && return 0
+    echo "" >"$LUN/file" 2>/dev/null || true
+    echo "" >"$G/UDC"
+}
+
+status() {
+    udc=$(udc_name)
+    echo "role:       $(role)"
+    echo "udc:        ${udc:-none}"
+    echo "udc state:  $(cat "/sys/class/udc/$udc/state" 2>/dev/null || echo n/a)"
+    echo "bound:      $(cat "$G/UDC" 2>/dev/null || echo no)"
+    echo "lun file:   $(cat "$LUN/file" 2>/dev/null || echo n/a)"
+}
+
+remove() {
+    [ -d "$G" ] || return 0
+    unbind
+    rm -f "$G/configs/c.1/mass_storage.usb0"
+    rmdir "$G/configs/c.1/strings/0x409" "$G/configs/c.1" \
+          "$G/functions/mass_storage.usb0" "$G/strings/0x409" "$G"
+}
+
+case "${1:-status}" in
+    create) create ;;
+    bind) create; bind ;;
+    unbind) unbind ;;
+    boot)
+        create
+        if [ "$(role)" != host ]; then bind; fi
+        ;;
+    status) status ;;
+    remove) remove ;;
+    *) echo "usage: $0 create|bind|unbind|boot|status|remove" >&2; exit 2 ;;
+esac

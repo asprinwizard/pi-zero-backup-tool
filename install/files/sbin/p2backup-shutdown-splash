@@ -1,0 +1,10 @@
+#!/bin/sh
+# systemd-shutdown hook: runs at the very end of shutdown, after all
+# services have stopped and filesystems are read-only.
+# $1 is one of: halt, poweroff, reboot, kexec.
+case "$1" in
+    halt|poweroff) msg=safe ;;
+    reboot|kexec) msg=restarting ;;
+    *) exit 0 ;;
+esac
+PYTHONPATH=/opt/p2backup/src /usr/bin/python3 -m p2backup.splash show "$msg" >/dev/null 2>&1 || true

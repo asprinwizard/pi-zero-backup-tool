@@ -1,0 +1,15 @@
+[Unit]
+Description=P2 Backup installer: continue after the partition reboot
+After=network-online.target local-fs.target
+Wants=network-online.target
+ConditionPathExists=/var/lib/p2backup-install/state.json
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 @REPO@/install.py --resume --yes
+StandardOutput=journal+console
+StandardError=journal+console
+TimeoutStartSec=infinity
+
+[Install]
+WantedBy=multi-user.target

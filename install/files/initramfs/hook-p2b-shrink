@@ -1,0 +1,26 @@
+#!/bin/sh
+# initramfs-tools hook: add the tools the one-time root shrink needs.
+# Installed to /etc/initramfs-tools/hooks/p2b-shrink by install.py (s30)
+# and removed again in s31.
+PREREQ=""
+prereqs() { echo "$PREREQ"; }
+case "$1" in
+    prereqs) prereqs; exit 0 ;;
+esac
+
+. /usr/share/initramfs-tools/hook-functions
+
+for tool in e2fsck resize2fs sfdisk blockdev; do
+    for dir in /usr/sbin /sbin /usr/bin /bin; do
+        if [ -x "$dir/$tool" ]; then
+            copy_exec "$dir/$tool" /sbin
+            break
+        fi
+    done
+done
+
+# Needed to edit cmdline.txt on the FAT boot partition (may be built in).
+manual_add_modules vfat
+manual_add_modules nls_cp437
+manual_add_modules nls_ascii
+manual_add_modules nls_iso8859_1

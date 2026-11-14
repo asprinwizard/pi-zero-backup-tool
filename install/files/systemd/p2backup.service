@@ -1,0 +1,15 @@
+[Unit]
+Description=P2 Backup main application
+After=p2backup-gadget.service p2backup-splash.service local-fs.target
+Wants=p2backup-gadget.service
+
+[Service]
+Type=simple
+Environment=PYTHONPATH=/opt/p2backup/src
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/p2backup/venv/bin/python -m p2backup
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
