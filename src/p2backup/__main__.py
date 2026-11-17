@@ -34,9 +34,9 @@ def main(argv: list[str] | None = None) -> int:
         print(KEYBOARD_HELP, flush=True)
     else:
         from .ui.display import OledDisplay
-        from .ui.inputs import GpioInputs
+        from .ui.inputs import GpioInputs, pins_for
         display = OledDisplay(flip=cfg.display.flip)
-        GpioInputs(events)
+        GpioInputs(events, pins=pins_for(cfg.display.flip))
 
     try:
         App(cfg, display, events).run()

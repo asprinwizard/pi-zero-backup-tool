@@ -23,11 +23,24 @@ class Key(enum.Enum):
     KEY3 = "key3"
 
 
-# BCM pin numbers (Waveshare wiki; active-low)
+# BCM pin numbers (active-low). Names are as the user sees them with the HAT held
+# joystick-on-the-RIGHT (the default: lines up with the camera USB socket), which
+# is the Waveshare layout rotated 180 degrees. KEY1 is the top key, KEY3 the bottom.
 PINS = {
-    Key.UP: 6, Key.DOWN: 19, Key.LEFT: 5, Key.RIGHT: 26, Key.PRESS: 13,
-    Key.KEY1: 21, Key.KEY2: 20, Key.KEY3: 16,
+    Key.UP: 19, Key.DOWN: 6, Key.LEFT: 26, Key.RIGHT: 5, Key.PRESS: 13,
+    Key.KEY1: 16, Key.KEY2: 20, Key.KEY3: 21,
 }
+# The same physical controls seen joystick-on-the-LEFT (Waveshare's own labels).
+_ROTATE = {Key.UP: Key.DOWN, Key.DOWN: Key.UP, Key.LEFT: Key.RIGHT, Key.RIGHT: Key.LEFT,
+           Key.PRESS: Key.PRESS, Key.KEY1: Key.KEY3, Key.KEY2: Key.KEY2, Key.KEY3: Key.KEY1}
+
+
+def pins_for(flip: bool = False) -> dict[Key, int]:
+    """Pin map for the configured orientation. flip=True = joystick on the left;
+    it goes with [display] flip, which rotates the screen the same way."""
+    if not flip:
+        return dict(PINS)
+    return {_ROTATE[k]: pin for k, pin in PINS.items()}
 
 # Keys that distinguish short and long presses. Others fire immediately on press.
 LONG_PRESS_KEYS = {Key.KEY3}
@@ -84,13 +97,15 @@ class PressTracker:
 class GpioInputs:
     """Real buttons via gpiozero. Events are put on the given queue."""
 
-    def __init__(self, events: queue.Queue, threshold: float = LONG_PRESS_S):
+    def __init__(self, events: queue.Queue, threshold: float = LONG_PRESS_S,
+                 pins: dict[Key, int] | None = None):
         from gpiozero import Button
 
+        pins = pins or PINS
         self._events = events
-        self._trackers = {k: PressTracker(k, k in LONG_PRESS_KEYS, threshold) for k in PINS}
+        self._trackers = {k: PressTracker(k, k in LONG_PRESS_KEYS, threshold) for k in pins}
         self._buttons = []
-        for key, pin in PINS.items():
+        for key, pin in pins.items():
             b = Button(pin, pull_up=True, bounce_time=0.03)
             b.when_pressed = lambda k=key: self._emit(self._trackers[k].down(time.monotonic()))
             b.when_released = lambda k=key: self._emit(self._trackers[k].up(time.monotonic()))

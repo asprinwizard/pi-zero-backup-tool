@@ -28,7 +28,9 @@ class CardsConfig:
 
 @dataclass
 class DisplayConfig:
-    flip: bool = False          # rotate 180 degrees if the image is upside down
+    # False: hold the device joystick-on-the-right. True: joystick-on-the-left;
+    # rotates both the screen and the controls by 180 degrees.
+    flip: bool = False
 
 
 @dataclass

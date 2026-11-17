@@ -27,6 +27,11 @@ pc_power_protection = "none"
 [cards]
 ask_card_number = true        # ask "Which card is this?" after a reformat
 ask_timeout_s = 60
+
+[display]
+# false: hold the device with the joystick on the RIGHT (lines up with the camera socket)
+# true:  joystick on the LEFT; rotates the screen and the controls 180 degrees
+flip = false
 """
 
 
@@ -38,6 +43,10 @@ def run(ctx: Ctx, state: State) -> None:
         if dest.exists():
             shutil.rmtree(dest)
         shutil.copytree(src, dest, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+
+    # Pre-compile: the boot splash runs before root is writable, and cold
+    # imports on a Zero 2 W are slow.
+    ctx.run(["/usr/bin/python3", "-m", "compileall", "-q", str(dest)])
 
     venv = f"{APP_DIR}/venv"
     if not ctx.path(f"{venv}/bin/python").exists():

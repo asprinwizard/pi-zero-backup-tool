@@ -1,15 +1,18 @@
 [Unit]
 Description=P2 Backup boot splash ("Starting up...")
+# Runs as early as possible: the SPI driver is loaded in the initramfs and /opt
+# is on the root filesystem, so there is nothing to wait for.
 DefaultDependencies=no
-After=local-fs.target systemd-udevd.service
 Before=p2backup.service
+# Stopped (and so shows "Shutting down...") at shutdown, after p2backup.service.
+Conflicts=shutdown.target
+Before=shutdown.target
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
 Environment=PYTHONPATH=/opt/p2backup/src
 ExecStart=/usr/bin/python3 -m p2backup.splash show starting
-# Shown when the system stops this unit during shutdown or reboot.
 ExecStop=/usr/bin/python3 -m p2backup.splash show stopping
 TimeoutSec=20
 

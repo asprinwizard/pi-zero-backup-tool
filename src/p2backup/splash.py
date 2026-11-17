@@ -18,6 +18,7 @@ from pathlib import Path
 from .ui import sh1106
 
 DEFAULT_DIR = Path("/opt/p2backup/splash")
+CONFIG_FILE = Path("/etc/p2backup.toml")
 DEVICES = ("/dev/spidev0.0", "/dev/gpiochip0")
 
 MESSAGES: dict[str, list[str]] = {
@@ -67,12 +68,21 @@ def wait_for_devices(timeout: float = 10.0) -> bool:
     return False
 
 
+def configured_flip(path: Path = CONFIG_FILE) -> bool:
+    """[display] flip from the config, read cheaply; any problem means False."""
+    try:
+        import tomllib
+        return bool(tomllib.loads(path.read_text()).get("display", {}).get("flip", False))
+    except Exception:
+        return False
+
+
 def show(name: str, image_dir: Path = DEFAULT_DIR) -> int:
     buf = (image_dir / f"{name}.bin").read_bytes()
     if not wait_for_devices():
         print("splash: SPI/GPIO devices not available", file=sys.stderr)
         return 1
-    oled = sh1106.SH1106()
+    oled = sh1106.SH1106(flip=configured_flip())
     try:
         oled.init()
         oled.show(buf)

@@ -148,12 +148,14 @@ class Ctx:
 
 # ---- pure text helpers (unit tested) ----------------------------------
 
-def managed_block(text: str, lines: list[str], marker: str = MARKER) -> str:
-    """Return config.txt text with our block (in an [all] section) at the end.
+def managed_block(text: str, lines: list[str], marker: str = MARKER,
+                  all_section: bool = True) -> str:
+    """Return text with our block at the end (for config.txt, in an [all] section).
 
     Any previous copy of the block is removed first, so this is idempotent.
-    The block starts with [all] so a preceding conditional section such as
-    [cm4] cannot swallow our lines.
+    For config.txt the block starts with [all] so a preceding conditional
+    section such as [cm4] cannot swallow our lines; other files pass
+    all_section=False.
     """
     begin, end = f"# BEGIN {marker}", f"# END {marker}"
     out, skipping = [], False
@@ -168,7 +170,7 @@ def managed_block(text: str, lines: list[str], marker: str = MARKER) -> str:
             out.append(line)
     while out and not out[-1].strip():
         out.pop()
-    block = [begin, "[all]", *lines, end]
+    block = [begin, *(["[all]"] if all_section else []), *lines, end]
     return "\n".join(out + ([""] if out else []) + block) + "\n"
 
 

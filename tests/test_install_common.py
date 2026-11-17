@@ -152,3 +152,9 @@ def test_state_persists(tmp_path: Path):
     assert s2.get("pip_fallback") == ["spidev"]
     s2.clear()
     assert not State(ctx).done("s10")
+
+
+def test_managed_block_without_all_section():
+    out = managed_block("loop\n", ["spidev"], all_section=False)
+    assert out == "loop\n\n# BEGIN p2backup\nspidev\n# END p2backup\n"
+    assert managed_block(out, ["spidev"], all_section=False) == out

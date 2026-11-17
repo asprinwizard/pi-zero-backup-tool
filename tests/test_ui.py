@@ -122,3 +122,26 @@ def test_config_ignores_unknown_keys(tmp_path: Path):
     p = tmp_path / "c.toml"
     p.write_text("[backup]\nverify = false\nfuture_option = 3\n")
     assert config.load(p).backup.verify is False
+
+
+def test_pins_default_is_joystick_right():
+    from p2backup.ui.inputs import PINS, Key, pins_for
+    # Waveshare's UP (6) and KEY1 (21) are DOWN and KEY3 when held joystick-on-the-right.
+    assert pins_for(False) == PINS
+    assert PINS[Key.DOWN] == 6 and PINS[Key.KEY3] == 21 and PINS[Key.PRESS] == 13
+
+
+def test_pins_flip_is_waveshare_layout():
+    from p2backup.ui.inputs import Key, pins_for
+    assert pins_for(True) == {Key.UP: 6, Key.DOWN: 19, Key.LEFT: 5, Key.RIGHT: 26,
+                              Key.PRESS: 13, Key.KEY1: 21, Key.KEY2: 20, Key.KEY3: 16}
+
+
+def test_splash_reads_flip(tmp_path):
+    from p2backup.splash import configured_flip
+    cfg = tmp_path / "p2backup.toml"
+    assert configured_flip(cfg) is False                # missing file
+    cfg.write_text("[display]\nflip = true\n")
+    assert configured_flip(cfg) is True
+    cfg.write_text("not toml [[[")
+    assert configured_flip(cfg) is False
