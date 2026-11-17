@@ -127,7 +127,8 @@ def main(argv: list[str] | None = None) -> int:
             try:
                 step.run(ctx, state)
             except RebootRequired as r:
-                state.mark(step.NAME)
+                if r.step_done:
+                    state.mark(step.NAME)
                 enable_resume(ctx)
                 reboot(ctx, args, str(r))
                 return 0

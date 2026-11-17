@@ -93,3 +93,20 @@ def test_shrink_script_prereqs_and_noop_without_token(tmp_path: Path):
                                   "sbin/p2backup-shutdown-splash"])
 def test_shell_files_parse(name):
     assert subprocess.run(["sh", "-n", str(FILES_DIR / name)]).returncode == 0
+
+
+def test_shrink_script_runs_once_and_persists_log():
+    tpl = (FILES_DIR / "initramfs/premount-p2b-shrink").read_text()
+    assert "/run/p2b-shrink.ran" in tpl                 # once per boot
+    assert "p2b-shrink.log" in tpl and "save_log" in tpl
+    assert "reboot -f" in tpl                           # stale kernel table -> reboot
+
+
+def test_p3_in_table():
+    from install.steps.s31_partition_stage2 import p3_in_table
+    dump = ("label: dos\nlabel-id: 0x0c3244ae\ndevice: /dev/mmcblk0\nunit: sectors\n\n"
+            "/dev/mmcblk0p1 : start=16384, size=1048576, type=c\n"
+            "/dev/mmcblk0p2 : start=1064960, size=33554432, type=83\n"
+            "/dev/mmcblk0p3 : start=34619392, size=448708607, type=7\n")
+    assert p3_in_table(dump)
+    assert not p3_in_table(dump.rsplit("/dev/mmcblk0p3", 1)[0])

@@ -8,14 +8,24 @@ An existing exFAT data area is never reformatted.
 import time
 
 from .. import partition as P
-from ..common import FILES_DIR, Ctx, InstallError, State, cmdline_remove, cmdline_value
+from ..common import (
+    FILES_DIR,
+    Ctx,
+    InstallError,
+    RebootRequired,
+    State,
+    cmdline_remove,
+    cmdline_value,
+)
 from .s30_partition_stage1 import CMDLINE, HOOK, SCRIPT, TOKEN
 
 NAME = "s31"
 DESCRIPTION = "Partition stage 2: format data area"
 
 LABEL = "P2BACKUP"
-SHRINK_LOG = "/run/initramfs/p2b-shrink.log"
+# The shrink script saves its log on the boot partition (survives its reboot);
+# older runs only left it in /run/initramfs.
+SHRINK_LOGS = ["/boot/firmware/p2b-shrink.log", "/run/initramfs/p2b-shrink.log"]
 
 
 def _attach_loop(ctx: Ctx) -> str:
@@ -35,16 +45,31 @@ def _wait_for(ctx: Ctx, dev: str, timeout: float = 5.0) -> bool:
     return False
 
 
+def p3_in_table(sfdisk_dump: str) -> bool:
+    """True if `sfdisk -d` output (the on-disk table) contains partition 3."""
+    return any(line.startswith(f"{P.DATA_DEV} ") for line in sfdisk_dump.splitlines())
+
+
 def run(ctx: Ctx, state: State) -> None:
-    # Keep the initramfs log, if this boot ran the shrink.
-    log = ctx.path(SHRINK_LOG)
-    if log.exists():
-        ctx.write("/var/log/p2backup-shrink.log", log.read_text())
-        for line in log.read_text().splitlines():
-            ctx.log(line)
+    # Keep the shrink log, if there is one.
+    for name in SHRINK_LOGS:
+        log = ctx.path(name)
+        if log.exists():
+            text = log.read_text()
+            ctx.write("/var/log/p2backup-shrink.log", text)
+            for line in text.splitlines():
+                if line.startswith("p2b-shrink:"):
+                    ctx.log(line)
+            if name.startswith("/boot/"):
+                ctx.remove(name)
+            break
 
     disk = P.read_disk(ctx)
     if not disk.has_p3:
+        on_disk = ctx.output(["sfdisk", "-d", P.DISK_DEV], check=False)
+        if p3_in_table(on_disk):
+            raise RebootRequired("the data partition is on the card but the kernel has not "
+                                 "loaded the new partition table yet", step_done=False)
         raise InstallError("data partition was not created; see /var/log/p2backup-shrink.log. "
                            "After fixing the cause, retry the shrink with: "
                            "sudo python3 install.py --only s30")

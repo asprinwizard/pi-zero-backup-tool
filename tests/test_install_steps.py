@@ -48,3 +48,9 @@ def test_select_steps():
 
 def test_package_importable():
     assert install.__doc__
+
+
+def test_reboot_required_step_done_flag():
+    from install.common import RebootRequired
+    assert RebootRequired("x").step_done is True
+    assert RebootRequired("x", step_done=False).step_done is False

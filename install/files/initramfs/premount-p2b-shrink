@@ -3,8 +3,13 @@
 # creation of the data partition. Runs before root is mounted.
 #
 # Only acts when the kernel command line contains "p2bshrink". The first
-# thing it does is remove that token from cmdline.txt, so whatever happens
-# next it can never run twice or cause a boot loop.
+# thing it does is remove that token from cmdline.txt, so it can never run
+# on a later boot or cause a boot loop. A marker in /run stops it running
+# twice within the same boot (local-premount can be invoked more than once).
+#
+# If the kernel cannot re-read the new partition table, the script reboots
+# so the system comes up with the new layout. The log is saved to the boot
+# partition (p2b-shrink.log) so it survives that reboot; s31 collects it.
 #
 # Numbers below were filled in by install.py (s30) from the live partition
 # table. If the table no longer matches, it does nothing.
@@ -15,6 +20,8 @@ case "$1" in
 esac
 
 grep -qw p2bshrink /proc/cmdline || exit 0
+[ -e /run/p2b-shrink.ran ] && exit 0
+: >/run/p2b-shrink.ran
 
 . /scripts/functions
 
@@ -36,8 +43,19 @@ say() {
     log_warning_msg "p2b-shrink: $*"
 }
 
+# Copy the log to the boot partition so it survives a reboot.
+save_log() {
+    mkdir -p /run/p2b-boot
+    if mount -t vfat "$BOOT_DEV" /run/p2b-boot 2>/dev/null; then
+        cp "$LOG" /run/p2b-boot/p2b-shrink.log
+        sync
+        umount /run/p2b-boot
+    fi
+}
+
 give_up() {
     say "FAILED: $* (partition table left unchanged unless noted)"
+    save_log
     exit 0
 }
 
@@ -62,6 +80,7 @@ say "trigger removed from cmdline.txt"
 # 2. Sanity checks against the numbers install.py saw.
 [ "$(cat "$SYS/${DISK#/dev/}p2/start")" = "$P2_START" ] || give_up "p2 start changed"
 [ -e "$SYS/${DISK#/dev/}p3" ] && give_up "p3 already exists"
+sfdisk -d "$DISK" 2>/dev/null | grep -q "^${DISK}p3 " && give_up "p3 already exists on disk"
 
 # 3. Check and shrink the filesystem (leaves a margin below the new partition size).
 e2fsck -fy "$ROOT_DEV" >>"$LOG" 2>&1
@@ -83,6 +102,17 @@ say "creating partition 3"
 echo "$P3_START,$P3_SECTORS,7" | sfdisk --no-reread --no-tell-kernel --append "$DISK" >>"$LOG" 2>&1 \
     || give_up "sfdisk could not add p3 (p2 already shrunk; system still boots)"
 
-blockdev --rereadpt "$DISK" >>"$LOG" 2>&1 || say "re-read of partition table failed (harmless)"
 say "done"
+if blockdev --rereadpt "$DISK" >>"$LOG" 2>&1; then
+    save_log
+    exit 0
+fi
+# The kernel still has the old table in memory. Reboot so the system comes up
+# with the new layout (the trigger token is already gone, so this runs once).
+say "kernel could not re-read the partition table; rebooting to load it"
+save_log
+sync
+reboot -f
+echo b >/proc/sysrq-trigger
+sleep 5
 exit 0

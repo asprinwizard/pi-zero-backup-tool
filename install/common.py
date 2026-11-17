@@ -27,7 +27,15 @@ class InstallError(Exception):
 
 
 class RebootRequired(Exception):
-    """Raised by a step that has finished its work and needs a reboot to continue."""
+    """Raised by a step that needs a reboot before the install can continue.
+
+    step_done=True: the step's work is finished (it is not run again).
+    step_done=False: the step must run again after the reboot.
+    """
+
+    def __init__(self, message: str, step_done: bool = True):
+        super().__init__(message)
+        self.step_done = step_done
 
 
 @dataclass
