@@ -64,6 +64,8 @@ def test_render_shrink_script_fills_all_placeholders():
     assert f"P2_SECTORS={lay.p2_sectors}" in out
     assert f"P3_START={lay.p3_start}" in out
     assert "FS_SIZE=15360M" in out
+    # No RTC in the initramfs: resize2fs must be forced after the e2fsck pass.
+    assert 'resize2fs -f "$ROOT_DEV"' in out
 
 
 def test_shrink_script_is_valid_sh(tmp_path: Path):

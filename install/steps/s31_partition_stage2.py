@@ -45,8 +45,9 @@ def run(ctx: Ctx, state: State) -> None:
 
     disk = P.read_disk(ctx)
     if not disk.has_p3:
-        raise InstallError("data partition was not created; see /var/log/p2backup-shrink.log "
-                           "(or run 'journalctl -b' for initramfs messages)")
+        raise InstallError("data partition was not created; see /var/log/p2backup-shrink.log. "
+                           "After fixing the cause, retry the shrink with: "
+                           "sudo python3 install.py --only s30")
 
     # Remove the one-time hook so future kernel updates don't carry it.
     cmd = ctx.read(CMDLINE)

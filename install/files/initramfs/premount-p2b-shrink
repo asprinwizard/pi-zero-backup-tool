@@ -68,7 +68,11 @@ e2fsck -fy "$ROOT_DEV" >>"$LOG" 2>&1
 rc=$?
 [ "$rc" -le 1 ] || give_up "e2fsck returned $rc"
 say "shrinking filesystem to $FS_SIZE (this can take a few minutes)"
-resize2fs "$ROOT_DEV" "$FS_SIZE" >>"$LOG" 2>&1 || give_up "resize2fs failed"
+# -f is required: the Pi has no RTC, so in the initramfs the clock is far in
+# the past. e2fsck's "last checked" stamp then looks older than the last
+# mount time and resize2fs would refuse with "Please run e2fsck -f first",
+# even though e2fsck -f has just passed above.
+resize2fs -f "$ROOT_DEV" "$FS_SIZE" >>"$LOG" 2>&1 || give_up "resize2fs failed"
 
 # 4. Shrink p2 and append p3. sfdisk keeps the disk identifier, so
 #    root=PARTUUID=... stays valid.
