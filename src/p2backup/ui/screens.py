@@ -80,3 +80,32 @@ def message(lines: list[str]) -> Image.Image:
         w = d.textlength(text, font=font(13))
         d.text(((WIDTH - w) // 2, top + i * 16), text, font=font(13), fill=1)
     return img
+
+
+def info(title: str, lines: list[str], right: str = "") -> Image.Image:
+    """Header plus up to four lines of text."""
+    img, d = blank()
+    header(d, title, right)
+    for i, text in enumerate(lines[:4]):
+        d.text((2, 15 + i * 12), text, font=font(11), fill=1)
+    return img
+
+
+def big(title: str, text: str, right: str = "") -> Image.Image:
+    """Header plus one large centred line (e.g. "Safe to unplug")."""
+    img, d = blank()
+    header(d, title, right)
+    w = d.textlength(text, font=font(13))
+    d.text(((WIDTH - w) // 2, 32), text, font=font(13), fill=1)
+    return img
+
+
+def alert(title: str, lines: list[str]) -> Image.Image:
+    """Inverted screen for warnings that must not be missed."""
+    img, d = blank()
+    d.rectangle((0, 0, WIDTH - 1, HEIGHT - 1), fill=1)
+    w = d.textlength(title, font=font(13))
+    d.text(((WIDTH - w) // 2, 1), title, font=font(13), fill=0)
+    for i, text in enumerate(lines[:3]):
+        d.text((3, 20 + i * 13), text, font=font(11), fill=0)
+    return img

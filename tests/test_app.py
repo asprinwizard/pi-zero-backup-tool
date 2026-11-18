@@ -4,7 +4,10 @@ import queue
 
 from p2backup.app import MENU_TIMEOUT_S, App
 from p2backup.config import Config
+from p2backup.power import Reading, UpsEvent
+from p2backup.storage import FakeStorage
 from p2backup.ui.inputs import InputEvent, Key, Kind
+from p2backup.usb import FakeUsb, UsbEvent
 
 LONG3 = InputEvent(Key.KEY3, Kind.LONG)
 
@@ -32,7 +35,10 @@ def make(power_ok=True, ip="192.168.1.148"):
         calls.append(action)
         return power_ok
 
-    app = App(Config(), FakeDisplay(), queue.Queue(), power=power, ip=lambda: ip, clock=clock)
+    usb = FakeUsb()
+    app = App(Config(), FakeDisplay(), queue.Queue(), usb, usb, FakeStorage(),
+              power=power, ip=lambda: ip, clock=clock)
+    app.start()
     return app, calls, clock
 
 
@@ -98,11 +104,54 @@ def test_menu_times_out():
 
 def test_ip_refresh_and_render_every_mode():
     app, _, _ = make()
-    assert app.tick() and app.ip == "192.168.1.148"
+    assert app.ip == "192.168.1.148"            # read by start()
     for keys in ([], [LONG3], [LONG3, Key.PRESS]):
         app2, _, _ = make()
         press(app2, *keys)
         app2.render()
         assert app2.display.frames[-1].size == (128, 64)
     app.mode, app.action = "busy", "reboot"
+    app.render()
+
+
+def _pc(app):
+    app.usb.plug_pc()
+    app.on_usb(UsbEvent(app.usb.current()))
+
+
+def test_power_menu_blocked_while_pc_has_drive():
+    app, calls, _ = make()
+    _pc(app)
+    assert app.conn.mode == "pc"
+    press(app, LONG3)
+    assert app.mode == "home" and app.notice is not None
+    press(app, Key.PRESS)                       # dismisses the notice only
+    assert app.notice is None and calls == []
+
+
+def test_pc_taking_drive_closes_open_menu():
+    app, _, _ = make()
+    press(app, LONG3)
+    _pc(app)
+    assert app.mode == "home"
+
+
+def test_ups_warning_only_in_pc_mode_with_no_protection():
+    app, _, _ = make()
+    app.on_ups(UpsEvent(True, Reading(3.9, -400)))
+    assert not app.ups_warning()                # not in PC mode
+    _pc(app)
+    assert app.ups_warning()
+    app.config.power.pc_power_protection = "diode"
+    assert not app.ups_warning()
+
+
+def test_every_connection_screen_renders():
+    app, _, _ = make()
+    for setup in (lambda: None, app.usb.plug_camera, lambda: _pc(app), app.usb.eject):
+        setup()
+        app.on_usb(UsbEvent(app.usb.current()))
+        app.render()
+        assert app.display.frames[-1].size == (128, 64)
+    app.conn.mode, app.conn.error = "error", "Drive needs repair"
     app.render()

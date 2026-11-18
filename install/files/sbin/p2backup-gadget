@@ -4,7 +4,8 @@
 #   p2backup-gadget create   create the gadget with an EMPTY LUN (no medium)
 #   p2backup-gadget bind     bind to the UDC (only meaningful when ID is floating)
 #   p2backup-gadget unbind   unbind from the UDC
-#   p2backup-gadget boot     create, then bind if the ID pin is floating
+#   p2backup-gadget boot     create, then bind (always: dwc2 still switches to host
+#                            when the camera's OTG cable grounds the ID pin)
 #   p2backup-gadget status   print role, UDC state and LUN file
 #   p2backup-gadget remove   tear the gadget down
 #
@@ -18,7 +19,8 @@ REGDUMP=/sys/kernel/debug/usb/3f980000.usb/regdump
 
 udc_name() { ls /sys/class/udc 2>/dev/null | head -n1; }
 
-# Prints host | device | unknown, from GOTGCTL bit 16 (ConIDSts).
+# Prints host | device | unknown, from GOTGCTL bit 16 (ConIDSts). For `status`
+# (diagnostics) only; reading the regdump logs Mode Mismatch Interrupts.
 role() {
     if [ -r "$REGDUMP" ]; then
         v=$(sed -n 's/^GOTGCTL *= *\(0x[0-9a-fA-F]*\).*/\1/p' "$REGDUMP" | head -n1)
@@ -99,8 +101,10 @@ case "${1:-status}" in
     bind) create; bind ;;
     unbind) unbind ;;
     boot)
+        # Don't read the role here: GOTGCTL comes from the regdump, which also
+        # reads host registers and logs "Mode Mismatch Interrupt" in device mode.
         create
-        if [ "$(role)" != host ]; then bind; fi
+        bind
         ;;
     status) status ;;
     remove) remove ;;

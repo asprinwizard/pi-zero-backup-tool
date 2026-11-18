@@ -18,6 +18,9 @@ class BackupConfig:
 @dataclass
 class PowerConfig:
     pc_power_protection: str = "none"
+    ina219_address: int = 0x43      # UPS HAT (C) battery monitor
+    shunt_ohms: float = 0.01        # verify with: python -m p2backup.power
+    ups_on_ma: int = 100            # battery discharge above this = UPS is powering the Pi
 
 
 @dataclass

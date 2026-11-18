@@ -139,9 +139,10 @@ KEYBOARD_HELP = ("keys: w/a/s/d = joystick, Enter or e = press, 1/2 = KEY1/KEY2,
 class KeyboardInputs:
     """--sim stand-in: type a key name and press Enter."""
 
-    def __init__(self, events: queue.Queue, stream=None):
+    def __init__(self, events: queue.Queue, stream=None, commands: dict | None = None):
         self._events = events
         self._stream = stream or sys.stdin
+        self._commands = commands or {}     # extra --sim commands, e.g. "pc" = plug in a PC
         threading.Thread(target=self._reader, daemon=True, name="inputs-kbd").start()
 
     def _reader(self) -> None:
@@ -153,6 +154,8 @@ class KeyboardInputs:
             ev = KEYBOARD_MAP.get(cmd)
             if ev:
                 self._events.put(ev)
+            elif cmd in self._commands:
+                self._commands[cmd]()
             else:
                 print(KEYBOARD_HELP, flush=True)
         self._events.put(None)
