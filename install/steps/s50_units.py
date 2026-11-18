@@ -1,6 +1,7 @@
 """Install systemd units, the gadget script and the shutdown splash hook.
 
 Also makes the boot splash appear sooner:
+- i2c-dev is loaded so the UPS battery monitor has /dev/i2c-1;
 - the SPI driver is loaded as soon as systemd starts (and from the
   initramfs too, should it be used);
 - the firmware skips the initramfs and its 1 s boot delay. The initramfs is
@@ -16,7 +17,11 @@ DESCRIPTION = "Install services, helper scripts and early splash support"
 INITRAMFS_MODULES = "/etc/initramfs-tools/modules"
 EARLY_MODULES = ["# OLED boot splash: SPI ready before systemd starts", "spi_bcm2835", "spidev"]
 MODULES_LOAD = "/etc/modules-load.d/p2backup-spi.conf"
-MODULES_LOAD_TEXT = "# OLED boot splash (installed by p2backup)\nspi_bcm2835\nspidev\n"
+MODULES_LOAD_TEXT = ("# Installed by p2backup\n"
+                     "# OLED boot splash: SPI ready as soon as systemd starts\n"
+                     "spi_bcm2835\nspidev\n"
+                     "# UPS HAT battery monitor (INA219): creates /dev/i2c-1\n"
+                     "i2c-dev\n")
 
 CONFIG = "/boot/firmware/config.txt"
 FASTBOOT_MARKER = "p2backup-fastboot"
@@ -58,7 +63,9 @@ def run(ctx: Ctx, state: State) -> None:
         ctx.run(["update-initramfs", "-u", "-k", "all"])
         state.set("reboot_needed", True)
 
-    ctx.write(MODULES_LOAD, MODULES_LOAD_TEXT, 0o644)
+    if ctx.read(MODULES_LOAD, default="") != MODULES_LOAD_TEXT:
+        ctx.write(MODULES_LOAD, MODULES_LOAD_TEXT, 0o644)
+        ctx.run(["modprobe", "i2c-dev"])     # no reboot needed for the UPS monitor
     cfg = ctx.read(CONFIG)
     new_cfg = fastboot_config(cfg)
     if new_cfg != cfg:
