@@ -52,13 +52,13 @@ def test_long_press_opens_menu_short_does_not():
 def test_shutdown_needs_confirmation_and_defaults_to_no():
     app, calls, _ = make()
     press(app, LONG3, Key.PRESS)                 # "Shut down"
-    assert app.mode == "confirm" and app.action == "poweroff" and not app.yes
+    assert app.mode == "confirm" and app.action == "halt" and not app.yes
     press(app, Key.PRESS)                        # default answer is No
     assert app.mode == "home" and calls == []
     press(app, LONG3, Key.PRESS, Key.RIGHT, Key.PRESS)
-    assert calls == ["poweroff"] and app.mode == "busy"
+    assert calls == ["halt"] and app.mode == "busy"
     press(app, Key.PRESS, LONG3)                 # ignored once shutting down
-    assert calls == ["poweroff"]
+    assert calls == ["halt"]
 
 
 def test_reboot_and_cancel_items():
@@ -83,7 +83,7 @@ def test_other_keys_cancel():
 def test_failed_power_request_returns_home():
     app, calls, _ = make(power_ok=False)
     press(app, LONG3, Key.PRESS, Key.RIGHT, Key.PRESS)
-    assert calls == ["poweroff"] and app.mode == "home"
+    assert calls == ["halt"] and app.mode == "home"
 
 
 def test_menu_times_out():

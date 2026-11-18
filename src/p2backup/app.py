@@ -25,9 +25,12 @@ REFRESH_S = 5.0          # how often the IP address is re-checked
 MENU_TIMEOUT_S = 15.0    # an untouched menu or question closes by itself
 
 POWER_ITEMS = ["Shut down", "Reboot", "Cancel"]
-POWER_ACTIONS = {"Shut down": "poweroff", "Reboot": "reboot"}
-POWER_QUESTIONS = {"poweroff": "Shut down now?", "reboot": "Reboot now?"}
-POWER_MESSAGES = {"poweroff": ["Shutting down..."], "reboot": ["Restarting..."]}
+# "Shut down" is `halt`, not `poweroff`: on a Pi, poweroff ends with a watchdog
+# reset that returns GPIO25 (OLED reset) to its pull-down and blanks the screen.
+# halt stops the CPUs with the pins untouched, so "Safe to switch off" stays.
+POWER_ACTIONS = {"Shut down": "halt", "Reboot": "reboot"}
+POWER_QUESTIONS = {"halt": "Shut down now?", "reboot": "Reboot now?"}
+POWER_MESSAGES = {"halt": ["Shutting down..."], "reboot": ["Restarting..."]}
 
 
 def local_ip() -> str | None:
