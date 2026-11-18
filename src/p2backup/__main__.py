@@ -39,7 +39,13 @@ def main(argv: list[str] | None = None) -> int:
         GpioInputs(events, pins=pins_for(cfg.display.flip))
 
     try:
-        App(cfg, display, events).run()
+        app = App(cfg, display, events)
+        if args.sim:
+            def fake_power(action: str) -> bool:
+                print(f"[sim] would run: systemctl {action}", flush=True)
+                return True
+            app.power = fake_power
+        app.run()
     except KeyboardInterrupt:
         pass
     finally:

@@ -41,3 +41,42 @@ def home_phase1(last_input: str | None, version: str, ip: str | None = None) -> 
     d.text((2, 34), "Last input:", font=font(11), fill=1)
     d.text((2, 48), last_input or "-", font=font(11), fill=1)
     return img
+
+
+ROW_H = 13
+
+
+def menu(title: str, items: list[str], selected: int) -> Image.Image:
+    """A list with the selected row shown inverted."""
+    img, d = blank()
+    header(d, title)
+    for i, text in enumerate(items):
+        y = 14 + i * ROW_H
+        if i == selected:
+            d.rectangle((0, y, WIDTH - 1, y + ROW_H - 1), fill=1)
+        d.text((4, y), text, font=font(11), fill=0 if i == selected else 1)
+    return img
+
+
+def confirm(question: str, yes: bool) -> Image.Image:
+    """Question with No / Yes buttons; the selected one is inverted."""
+    img, d = blank()
+    header(d, "Confirm")
+    w = d.textlength(question, font=font(11))
+    d.text(((WIDTH - w) // 2, 20), question, font=font(11), fill=1)
+    for label, x, chosen in (("No", 14, not yes), ("Yes", 74, yes)):
+        box = (x, 44, x + 40, 60)
+        d.rectangle(box, outline=1, fill=1 if chosen else 0)
+        lw = d.textlength(label, font=font(11))
+        d.text((x + (40 - lw) // 2, 45), label, font=font(11), fill=0 if chosen else 1)
+    return img
+
+
+def message(lines: list[str]) -> Image.Image:
+    """Centred lines of text, nothing else."""
+    img, d = blank()
+    top = (HEIGHT - 16 * len(lines)) // 2
+    for i, text in enumerate(lines):
+        w = d.textlength(text, font=font(13))
+        d.text(((WIDTH - w) // 2, top + i * 16), text, font=font(13), fill=1)
+    return img
