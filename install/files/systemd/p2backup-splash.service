@@ -12,6 +12,8 @@ Before=shutdown.target
 Type=oneshot
 RemainAfterExit=yes
 Environment=PYTHONPATH=/opt/p2backup/src
+# lgpio creates a notify pipe in its working dir; / is read-only early in boot
+Environment=LG_WD=/run
 ExecStart=/usr/bin/python3 -m p2backup.splash show starting
 ExecStop=/usr/bin/python3 -m p2backup.splash show stopping
 TimeoutSec=20

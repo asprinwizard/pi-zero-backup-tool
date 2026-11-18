@@ -54,3 +54,24 @@ def test_reboot_required_step_done_flag():
     from install.common import RebootRequired
     assert RebootRequired("x").step_done is True
     assert RebootRequired("x", step_done=False).step_done is False
+
+
+def test_fastboot_config_block_and_cleanup():
+    from install.common import strip_block
+    from install.steps.s50_units import FASTBOOT_MARKER, fastboot_config
+    from tests.test_install_common import STOCK_CONFIG
+    hand = STOCK_CONFIG + "auto_initramfs=0\nboot_delay=0\n"      # added by hand while testing
+    out = fastboot_config(hand)
+    assert out.count("auto_initramfs=0") == 1 and out.count("boot_delay=0") == 1
+    assert "# BEGIN p2backup-fastboot" in out
+    assert fastboot_config(out) == out                            # idempotent
+    assert "auto_initramfs=0" not in strip_block(out, FASTBOOT_MARKER)
+
+
+def test_s30_accepts_our_fastboot_block():
+    from install.common import config_has, strip_block
+    from install.steps.s50_units import FASTBOOT_MARKER, fastboot_config
+    from tests.test_install_common import STOCK_CONFIG
+    cfg = fastboot_config(STOCK_CONFIG)
+    assert config_has(cfg, "auto_initramfs=0")
+    assert not config_has(strip_block(cfg, FASTBOOT_MARKER), "auto_initramfs=0")

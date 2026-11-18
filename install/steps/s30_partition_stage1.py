@@ -17,7 +17,9 @@ from ..common import (
     cmdline_add,
     cmdline_tokens,
     config_has,
+    strip_block,
 )
+from .s50_units import FASTBOOT_MARKER
 
 NAME = "s30"
 DESCRIPTION = "Partition stage 1: plan root shrink and data partition"
@@ -50,7 +52,8 @@ def preflight(ctx: Ctx) -> P.Disk:
         raise InstallError(f"root uses more than {P.MAX_ROOT_USED_MIB} MiB; cannot shrink "
                            f"to {P.ROOT_PART_MIB} MiB safely")
 
-    cfg = ctx.read(CONFIG)
+    # Our own fast-boot block (s50) is removed before shrinking; anything else is the user's.
+    cfg = strip_block(ctx.read(CONFIG), FASTBOOT_MARKER)
     if config_has(cfg, "auto_initramfs=0"):
         raise InstallError("auto_initramfs=0 in config.txt; the shrink needs the initramfs")
     if not any(ctx.path("/boot/firmware").glob("initramfs*")):
@@ -91,6 +94,11 @@ def run(ctx: Ctx, state: State) -> None:
     if not ctx.confirm(f"Shrink root to {P.ROOT_PART_MIB // 1024} GiB and create a "
                        f"{data_gib:.0f} GiB data partition on the next boot?"):
         raise InstallError("cancelled by user")
+
+    # The shrink runs from the initramfs: make sure the firmware loads it.
+    cfg = ctx.read(CONFIG)
+    if strip_block(cfg, FASTBOOT_MARKER) != cfg:
+        ctx.write(CONFIG, strip_block(cfg, FASTBOOT_MARKER))
 
     ctx.install_file(FILES_DIR / "initramfs/hook-p2b-shrink", HOOK, 0o755)
     script = P.render_shrink_script(

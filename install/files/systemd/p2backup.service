@@ -6,6 +6,8 @@ Wants=p2backup-gadget.service
 [Service]
 Type=simple
 Environment=PYTHONPATH=/opt/p2backup/src
+# lgpio creates a notify pipe in its working dir; / is read-only early in boot
+Environment=LG_WD=/run
 Environment=PYTHONUNBUFFERED=1
 ExecStart=/opt/p2backup/venv/bin/python -m p2backup
 Restart=always

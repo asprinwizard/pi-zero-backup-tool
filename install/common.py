@@ -158,6 +158,16 @@ def managed_block(text: str, lines: list[str], marker: str = MARKER,
     all_section=False.
     """
     begin, end = f"# BEGIN {marker}", f"# END {marker}"
+    out = strip_block(text, marker).splitlines()
+    while out and not out[-1].strip():
+        out.pop()
+    block = [begin, *(["[all]"] if all_section else []), *lines, end]
+    return "\n".join(out + ([""] if out else []) + block) + "\n"
+
+
+def strip_block(text: str, marker: str = MARKER) -> str:
+    """Return text with our marked block (if any) removed."""
+    begin, end = f"# BEGIN {marker}", f"# END {marker}"
     out, skipping = [], False
     for line in text.splitlines():
         if line.strip() == begin:
@@ -168,10 +178,7 @@ def managed_block(text: str, lines: list[str], marker: str = MARKER,
             continue
         if not skipping:
             out.append(line)
-    while out and not out[-1].strip():
-        out.pop()
-    block = [begin, *(["[all]"] if all_section else []), *lines, end]
-    return "\n".join(out + ([""] if out else []) + block) + "\n"
+    return "\n".join(out) + ("\n" if out else "")
 
 
 def cmdline_tokens(text: str) -> list[str]:
