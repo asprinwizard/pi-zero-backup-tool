@@ -25,6 +25,7 @@ from install.common import FILES_DIR, REPO_DIR, Ctx, InstallError, RebootRequire
 from install.steps import STEPS
 
 RESUME_UNIT = "p2backup-install-resume.service"
+UPDATE_STEPS = ("s40", "s50")      # everything that comes from the repo and changes with it
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -37,7 +38,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--skip", metavar="STEP", action="append", default=[],
                    help="skip these steps (repeatable)")
     p.add_argument("--update", action="store_true",
-                   help="re-deploy the app only (s40) and restart the service")
+                   help="re-deploy the app, services and helper scripts (s40, s50), "
+                        "then restart the service")
     p.add_argument("--resume", action="store_true", help=argparse.SUPPRESS)
     p.add_argument("--no-upgrade", action="store_true", help="skip apt full-upgrade")
     p.add_argument("--no-reboot", action="store_true", help="never reboot automatically")
@@ -87,7 +89,7 @@ def select_steps(args: argparse.Namespace):
         if n not in known:
             raise InstallError(f"unknown step '{n}' (known: {', '.join(sorted(known))})")
     if args.update:
-        return [s for s in STEPS if s.NAME == "s40"]
+        return [s for s in STEPS if s.NAME in UPDATE_STEPS]
     chosen = []
     for s in STEPS:
         if args.only and s.NAME not in args.only:
@@ -137,6 +139,9 @@ def main(argv: list[str] | None = None) -> int:
         if args.update:
             ctx.run(["systemctl", "restart", "p2backup.service"], check=False)
             print("\nApp updated.")
+            if state.get("reboot_needed"):
+                state.set("reboot_needed", False)
+                reboot(ctx, args, "the boot image changed")
             return 0
 
         print("\nDone." if not ctx.dry_run else "\nDry run complete.")

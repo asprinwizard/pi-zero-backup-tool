@@ -30,7 +30,7 @@ Useful options:
 |---|---|
 | `--dry-run` | Show what would change |
 | `--only s20` / `--skip s10` | Run or skip individual steps (`s10` … `s60`, `s90` is opt-in) |
-| `--update` | Re-deploy the app and restart the service (development) |
+| `--update` | Re-deploy the app, services and helper scripts, restart the service, and offer a reboot if the boot image changed (development) |
 | `--no-upgrade` | Skip `apt full-upgrade` |
 | `--no-reboot` | Never reboot automatically |
 

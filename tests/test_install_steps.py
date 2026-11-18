@@ -43,7 +43,7 @@ def test_select_steps():
     assert "s90" not in select_steps_for([])            # opt-in step excluded by default
     assert select_steps_for(["--only", "s90"]) == ["s90"]
     assert "s10" not in select_steps_for(["--skip", "s10"])
-    assert select_steps_for(["--update"]) == ["s40"]
+    assert select_steps_for(["--update"]) == ["s40", "s50"]
 
 
 def test_package_importable():
