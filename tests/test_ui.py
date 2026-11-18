@@ -58,6 +58,8 @@ def test_home_screen_renders():
     img = screens.home_phase1("key3 (long)", "0.1.0")
     assert img.size == (128, 64)
     assert any(sh1106.pack(img))
+    with_ip = screens.home_phase1("key3 (long)", "0.1.0", "192.168.1.148")
+    assert sh1106.pack(with_ip) != sh1106.pack(img)
 
 
 # ---- long press --------------------------------------------------------

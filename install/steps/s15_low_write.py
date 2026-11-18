@@ -12,9 +12,11 @@ Storage=volatile
 RuntimeMaxUse=16M
 """
 
-DISABLE_SERVICES = ["triggerhappy.service", "triggerhappy.socket", "avahi-daemon.service",
-                    "avahi-daemon.socket", "ModemManager.service", "bluetooth.service",
-                    "hciuart.service"]
+DISABLE_SERVICES = ["triggerhappy.service", "triggerhappy.socket", "ModemManager.service",
+                    "bluetooth.service", "hciuart.service"]
+# Keep mDNS: without it <hostname>.local stops resolving and SSH by name fails.
+# (An earlier version disabled it; this turns it back on.)
+KEEP_ENABLED = ["avahi-daemon.socket", "avahi-daemon.service"]
 
 
 def run(ctx: Ctx, state: State) -> None:
@@ -30,3 +32,9 @@ def run(ctx: Ctx, state: State) -> None:
                          mutating=False).returncode == 0
         if exists:
             ctx.run(["systemctl", "disable", "--now", unit], check=False)
+
+    for unit in KEEP_ENABLED:
+        enabled = ctx.run(["systemctl", "is-enabled", unit], check=False, capture=True,
+                          mutating=False)
+        if enabled.stdout.strip() == "disabled":
+            ctx.run(["systemctl", "enable", "--now", unit], check=False)

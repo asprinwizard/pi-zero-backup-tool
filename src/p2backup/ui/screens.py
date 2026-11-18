@@ -34,10 +34,10 @@ def header(draw, title: str, right: str = "") -> None:
         draw.text((WIDTH - 2 - w, 0), right, font=font(11), fill=0)
 
 
-def home_phase1(last_input: str | None, version: str) -> Image.Image:
+def home_phase1(last_input: str | None, version: str, ip: str | None = None) -> Image.Image:
     img, d = blank()
     header(d, "P2 BACKUP", f"v{version}")
-    d.text((2, 18), "Phase 1 build", font=font(11), fill=1)
+    d.text((2, 18), f"IP {ip}" if ip else "No network", font=font(11), fill=1)
     d.text((2, 34), "Last input:", font=font(11), fill=1)
     d.text((2, 48), last_input or "-", font=font(11), fill=1)
     return img
