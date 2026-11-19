@@ -47,10 +47,13 @@ def press(app, *keys):
         app.handle(k if isinstance(k, InputEvent) else InputEvent(k))
 
 
-def test_long_press_opens_menu_short_does_not():
-    app, _, _ = make()
+def test_long_press_opens_menu_short_asks_restart():
+    app, calls, _ = make()
     press(app, InputEvent(Key.KEY3, Kind.SHORT))
-    assert app.mode == "home"
+    assert app.mode == "confirm" and app.action == "restart"
+    press(app, Key.RIGHT, Key.PRESS)
+    assert calls == ["restart"]
+    app, _, _ = make()
     press(app, LONG3)
     assert app.mode == "menu" and app.selected == 0
 

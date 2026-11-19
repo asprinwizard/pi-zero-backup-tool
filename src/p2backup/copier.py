@@ -195,7 +195,7 @@ class Copier:
                 raise DiskFull(f"needs {need / 1e9:.1f} GB, "
                                f"only {self._free(self.dest) / 1e9:.1f} GB free")
             self._log(f"run {self.run_id}: {len(items)} files, {len(todo)} to copy "
-                      f"({need} bytes), {res.skipped} already verified")
+                      f"({need} bytes), {res.skipped} already verified", logging.INFO)
             self._copy_all(todo, need, res, start)
             res.missing = [i.rel for i in items if i.rel not in self.manifest]
             res.status = INCOMPLETE if (res.missing or res.failed) else VERIFIED
@@ -218,7 +218,7 @@ class Copier:
             self._log(f"result: {res.status} copied={res.copied} adopted={res.adopted} "
                       f"skipped={res.skipped} replaced={res.replaced} failed={len(res.failed)} "
                       f"missing={len(res.missing)} bytes={res.bytes_copied} "
-                      f"seconds={res.seconds:.0f} {res.message}")
+                      f"seconds={res.seconds:.0f} {res.message}", logging.INFO)
             self._close_log()
         return res
 
@@ -233,7 +233,7 @@ class Copier:
                 outcome = self._copy_one(item, report, res)       # one retry
             if outcome == "bad":
                 res.failed.append((item.rel, "backup did not match the card after 2 tries"))
-                self._log(f"FAILED {item.rel}: verify mismatch twice")
+                self._log(f"FAILED {item.rel}: verify mismatch twice", logging.WARNING)
             done_bytes += item.size
             if outcome == "ok":
                 res.bytes_copied += item.size
@@ -365,8 +365,9 @@ class Copier:
         runs.mkdir(parents=True, exist_ok=True)
         self._log_file = open(runs / f"{self.run_id}.log", "a", buffering=1)
 
-    def _log(self, line: str) -> None:
-        log.info(line)
+    def _log(self, line: str, level: int = logging.DEBUG) -> None:
+        """Every line goes to the run log on the drive; only run start/end to the journal."""
+        log.log(level, line)
         if self._log_file:
             self._log_file.write(time.strftime("%H:%M:%S ") + line + "\n")
 

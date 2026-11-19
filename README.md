@@ -36,9 +36,10 @@ Useful options:
 
 The installer is safe to re-run. It never reformats an existing backup partition.
 
-## Using it (when complete)
+## Using it
 
-- **Camera:** connect the OTG cable, set the HVX200 to USB DEVICE mode, and pick a card on the screen.
+- **Camera:** connect the OTG cable and set the HVX200 to USB DEVICE mode. The screen lists the cards. **KEY1** backs up slot 1, **KEY2** slot 2 (or select with the joystick and press). Confirm with ► then press. A card the device hasn't seen before asks "Which card is this?" (no answer in 60 s: `UNSORTED`). Any key during a backup asks to cancel. Joystick ► on a card moves its backup to another card number.
+- **KEY3** (bottom key): short press restarts the app, hold 2 s for Shut down / Reboot. Both are blocked during a backup and while a PC has the drive.
 - **PC:** **switch the UPS OFF**, connect the USB-A cable, and copy files from the `P2BACKUP` drive. Eject on the PC, then wait for **"Safe to unplug"** on the screen.
 
 ## Command-line backup (until the on-screen flow exists)
@@ -63,6 +64,7 @@ python3 -m venv .venv && .venv/bin/pip install -e '.[dev]'
 .venv/bin/pytest
 .venv/bin/ruff check .
 PYTHONPATH=src python3 -m p2backup --sim        # terminal display, keyboard input
+#   sim commands: cam (camera with a fake card), card2, rec1, format1, pc, eject, unplug, upson
 PYTHONPATH=src python3 -m p2backup.splash preview starting
 PYTHONPATH=src python3 -m p2backup.backup --data /tmp/data run --source /path/to/card-folder --card new
 ```
