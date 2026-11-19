@@ -252,8 +252,10 @@ def test_screen_text_fits():
              CardView(2, present=True, is_p2=True, card="P2-99", folder="f", files_total=9,
                       files_todo=3, bytes_todo=63_900_000_000),
              CardView(2, present=True, is_p2=True, card=None, folder="f", files_total=9)]
-    texts = [screens.card_row(v) for v in views]
-    texts += ["K1/K2: back up S1/S2", "Free: 229.4 GB", "Back up slot 2?", "63.9GB to copy",
+    for v in views:                             # card rows start after the marker
+        assert d.textlength(screens.card_row(v), font=f) <= 118, screens.card_row(v)
+    texts = ["Free: 229.4 GB", "Version 0.10.0", "IP 192.168.100.200", "Name rpi-zero-backup",
+             "Drive: 229.4 GB free", "Back up slot 2?", "63.9GB to copy",
               "Move to P2-99?", "from UNSORTED", "Cancel backup?", "Copied files are kept",
               "S2: which card?", "Move to which card?", "New card P2-99"]
     texts += list(POWER_QUESTIONS.values())
@@ -268,3 +270,27 @@ def test_screen_text_fits():
     screens.backing_up("UNSORTED", p, "100%")
     for t in texts:
         assert d.textlength(t, font=f) <= 124, t
+
+
+def test_about_from_camera_list_and_idle(tmp_path):
+    app, _, clock = app_with_camera(tmp_path)
+    keys(app, Key.DOWN, Key.DOWN)               # S1, S2, About
+    assert app.card_sel == 2
+    keys(app, Key.PRESS)
+    assert app.mode == "about"
+    keys(app, Key.KEY1)                         # any key: back, nothing else
+    assert app.mode == "home" and app.notice is None
+    app.usb.unplug()
+    app.on_usb(UsbEvent(app.usb.current()))
+    keys(app, Key.PRESS)
+    assert app.mode == "about"
+    clock.t += 16
+    app.tick()
+    assert app.mode == "home"
+
+
+def test_header_status_icons():
+    from p2backup.ui import screens
+    a = screens.info("T", [], screens.Status(wifi=True, battery=50))
+    b = screens.info("T", [], screens.Status(wifi=False, battery=50))
+    assert a.tobytes() != b.tobytes()

@@ -8,6 +8,7 @@ work in the background. The UI layer on top:
     menu        power menu (KEY3 held 2 s)
     confirm     Yes/No question; default No, closes itself after 10 s
     pick        choose from a list ("Which card is this?", "Move to which card?")
+    about       version, IP, host name, drive space (joystick press on "About")
     backing_up  progress; any key asks "Cancel backup?"
     result      outcome of the last backup, until a key is pressed
     busy        shutting down / restarting
@@ -147,8 +148,15 @@ class App:
         self._cards_active = False
 
     # ---- drawing -----------------------------------------------------
-    def battery(self) -> str:
-        return f"{self.ups.reading.percent}%" if self.ups else ""
+    def battery(self) -> screens.Status:
+        """Header icons (the name is kept from when it was only the battery %)."""
+        return screens.Status(wifi=self.ip is not None,
+                              battery=self.ups.reading.percent if self.ups else None)
+
+    def about_lines(self) -> list[str]:
+        free = "-" if self.free is None else f"{self.free / 1e9:.1f} GB free"
+        return [f"Version {__version__}", f"IP {self.ip}" if self.ip else "No network",
+                f"Name {socket.gethostname()}"[:21], f"Drive: {free}"]
 
     def ups_warning(self) -> bool:
         return (self.conn.mode in ("pc", "pc_ejected") and self.ups is not None
@@ -162,6 +170,8 @@ class App:
             return screens.confirm(self.question, self.yes, self.detail)
         if self.mode == "busy":
             return screens.message(POWER_MESSAGES[self.action])
+        if self.mode == "about":
+            return screens.about(self.about_lines())
         if self.notice:
             return screens.info(*self.notice)
         if self.ups_warning():
@@ -191,10 +201,8 @@ class App:
         if c.mode == "camera":
             return screens.card_list(list(self.card_views.cards), self.card_sel, gb(self.free),
                                      bat)
-        lines = ["Nothing connected", gb(self.free), f"IP {self.ip}" if self.ip else "No network"]
-        if c.repaired:
-            lines.append("Drive was repaired")
-        return screens.info(f"P2 BACKUP v{__version__}", lines, bat)
+        lines = ["Nothing connected"] + (["Drive was repaired"] if c.repaired else [])
+        return screens.idle(lines, gb(self.free), bat)
 
     def render(self) -> None:
         self.display.show(self.screen())
@@ -250,7 +258,7 @@ class App:
             if not self.cancelling:
                 self.ask("Cancel backup?", self._cancel_backup,
                          "Copied files are kept")
-        elif self.mode == "result":
+        elif self.mode in ("result", "about"):
             self.mode = "home"
         elif ev.key is Key.KEY3:
             self._key3(ev)
@@ -259,6 +267,8 @@ class App:
             self.free = self.storage.free_bytes()
         elif self.conn.mode == "camera":
             self._card_list_input(ev)
+        elif self.conn.mode == "idle" and ev.key is Key.PRESS:
+            self.mode = "about"
 
     def _key3(self, ev: InputEvent) -> None:
         reason = self.blocked_reason
@@ -325,16 +335,21 @@ class App:
 
     # ---- camera side -------------------------------------------------
     def _card_list_input(self, ev: InputEvent) -> None:
-        cards = self.card_views.cards
-        if ev.key in (Key.UP, Key.DOWN) and cards:
-            self.card_sel = (self.card_sel + (1 if ev.key is Key.DOWN else -1)) % len(cards)
+        cards = self.card_views.cards[:2]
+        on_card = self.card_sel < len(cards)        # otherwise: About
+        if ev.key in (Key.UP, Key.DOWN):
+            n = len(cards) + 1
+            self.card_sel = (self.card_sel + (1 if ev.key is Key.DOWN else -1)) % n
         elif ev.key is Key.KEY1:
             self.request_backup(1)
         elif ev.key is Key.KEY2:
             self.request_backup(2)
-        elif ev.key is Key.PRESS and cards:
-            self.request_backup(cards[self.card_sel].slot)
-        elif ev.key is Key.RIGHT and cards:
+        elif ev.key is Key.PRESS:
+            if on_card:
+                self.request_backup(cards[self.card_sel].slot)
+            else:
+                self.mode = "about"
+        elif ev.key is Key.RIGHT and on_card:
             self.request_reassign(cards[self.card_sel].slot)
 
     def view(self, slot: int):
@@ -427,7 +442,7 @@ class App:
     def on_cards(self, ev) -> None:
         if isinstance(ev, CardsEvent):
             self.card_views = ev
-            self.card_sel = min(self.card_sel, max(0, len(ev.cards) - 1))
+            self.card_sel = min(self.card_sel, len(ev.cards[:2]))    # == len: About
         elif isinstance(ev, BackupProgressEvent):
             self.progress = ev.progress
         elif isinstance(ev, BackupDoneEvent):
@@ -444,7 +459,7 @@ class App:
         now = self.clock()
         changed = False
         idle = now - self._last_activity
-        if self.mode == "menu" and idle >= MENU_TIMEOUT_S:
+        if self.mode in ("menu", "about") and idle >= MENU_TIMEOUT_S:
             self.mode, changed = "home", True
         if self.mode == "confirm" and idle >= CONFIRM_TIMEOUT_S:
             self.mode, self._on_yes, changed = self._confirm_back, None, True
