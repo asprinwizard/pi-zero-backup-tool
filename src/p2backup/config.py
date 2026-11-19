@@ -21,6 +21,11 @@ class PowerConfig:
     ina219_address: int = 0x43      # UPS HAT (C) battery monitor
     shunt_ohms: float = 0.01        # verify with: python -m p2backup.power
     ups_on_ma: int = 100            # battery discharge above this = UPS is powering the Pi
+    battery_mah: int = 1000         # UPS HAT (C) cell
+    low_pct: int = 15               # warn on the screen
+    critical_pct: int = 5           # cancel any backup and shut down cleanly
+    backup_ma: int = 300            # battery drain during a backup (refine with test 0.9)
+    backup_mb_s: float = 7.5        # backup speed with verify (test 0.6: 7.7)
 
 
 @dataclass

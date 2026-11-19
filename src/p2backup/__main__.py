@@ -41,10 +41,12 @@ def main(argv: list[str] | None = None) -> int:
             "pc": usb.plug_pc, "eject": usb.eject, "unplug": usb.unplug, "cam": usb.plug_camera,
             "upson": lambda: events.put(UpsEvent(True, Reading(3.9, -450))),
             "upsoff": lambda: events.put(UpsEvent(False, Reading(3.9, 0))),
+            "batlow": lambda: events.put(UpsEvent(True, Reading(3.6, -300), 12, "low")),
+            "batempty": lambda: events.put(UpsEvent(True, Reading(3.4, -300), 3, "critical")),
             **sim_cmds,
         }
         KeyboardInputs(events, commands=commands)
-        print(KEYBOARD_HELP + "\nsim: pc, eject, unplug, cam, upson, upsoff, "
+        print(KEYBOARD_HELP + "\nsim: pc, eject, unplug, cam, upson, upsoff, batlow, batempty, "
               + ", ".join(sim_cmds), flush=True)
         ups = None
     else:

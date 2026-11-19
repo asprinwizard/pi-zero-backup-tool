@@ -40,6 +40,7 @@ The installer is safe to re-run. It never reformats an existing backup partition
 
 - **Camera:** connect the OTG cable and set the HVX200 to USB DEVICE mode. The screen lists the cards. **KEY1** backs up slot 1, **KEY2** slot 2 (or select with the joystick and press). Confirm with ► then press. A card the device hasn't seen before asks "Which card is this?" (no answer in 60 s: `UNSORTED`). Any key during a backup asks to cancel. Joystick ► on a card moves its backup to another card number. Rows marked ▸ can be selected.
 - **About** (bottom right, press the joystick on it): version, IP address, host name, free space. The header shows a Wi-Fi icon when the device is on a network.
+- **Battery:** the header shows the UPS battery. Below 15 % the screen warns; at about 5 % the device stops any backup cleanly and shuts down (copied files stay verified; the next backup carries on). Before a backup it warns "Battery may run out" if the card is too big for the charge left.
 - **KEY3** (bottom key): short press restarts the app, hold 2 s for Shut down / Reboot. Both are blocked during a backup and while a PC has the drive.
 - **PC:** **switch the UPS OFF**, connect the USB-A cable, and copy files from the `P2BACKUP` drive. Eject on the PC, then wait for **"Safe to unplug"** on the screen.
 

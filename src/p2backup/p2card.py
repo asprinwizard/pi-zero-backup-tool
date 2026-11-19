@@ -243,4 +243,6 @@ class CardMounter:
     def unmount(self, slot: int) -> None:
         mp = self.base / f"slot{slot}"
         if os.path.ismount(mp):
-            self._run(["umount", str(mp)])
+            if self._run(["umount", str(mp)]).returncode != 0:
+                # The camera was unplugged or switched off with the card mounted.
+                self._run(["umount", "-l", str(mp)])

@@ -30,7 +30,7 @@ from .cards import NEW, BackupDoneEvent, BackupProgressEvent, CardsEvent, Worker
 from .config import Config
 from .connection import Connection
 from .copier import CANCELLED, CARD_LOST, DISK_FULL, INCOMPLETE
-from .power import UpsEvent
+from .power import CRITICAL, LOW, OK, UpsEvent
 from .ui import screens
 from .ui.inputs import InputEvent, Key, Kind
 from .usb import UsbEvent
@@ -41,6 +41,7 @@ REFRESH_S = 5.0          # how often the IP address and free space are re-read
 MENU_TIMEOUT_S = 15.0    # an untouched menu closes by itself
 CONFIRM_TIMEOUT_S = 10.0  # an unanswered question counts as "No"
 NOTICE_S = 3.0           # how long a short notice ("Eject on PC first") stays
+BATTERY_HALT_WAIT_S = 60.0  # battery empty: how long to wait for a cancelled backup to stop
 UNSORTED_LABEL = "Unsorted"
 
 POWER_ITEMS = ["Shut down", "Reboot", "Cancel"]
@@ -121,6 +122,8 @@ class App:
         self.selected = 0                   # power menu row
         self.action: str | None = None      # power action being confirmed / run
         self.yes = False
+        self.busy_lines: list[str] | None = None
+        self._halt_after_backup: float | None = None     # deadline, when the battery is empty
         self.notice: tuple[str, list[str]] | None = None
         self._notice_until = 0.0
         self._last_activity = clock()
@@ -151,7 +154,7 @@ class App:
     def battery(self) -> screens.Status:
         """Header icons (the name is kept from when it was only the battery %)."""
         return screens.Status(wifi=self.ip is not None,
-                              battery=self.ups.reading.percent if self.ups else None)
+                              battery=self.ups.pct if self.ups else None)
 
     def about_lines(self) -> list[str]:
         free = "-" if self.free is None else f"{self.free / 1e9:.1f} GB free"
@@ -169,7 +172,7 @@ class App:
         if self.mode == "confirm":
             return screens.confirm(self.question, self.yes, self.detail)
         if self.mode == "busy":
-            return screens.message(POWER_MESSAGES[self.action])
+            return screens.message(self.busy_lines or POWER_MESSAGES[self.action])
         if self.mode == "about":
             return screens.about(self.about_lines())
         if self.notice:
@@ -287,7 +290,7 @@ class App:
         if self.blocked_reason:     # a PC took the drive while the question was open
             self.mode = "home"
             return
-        self.mode = "busy"
+        self.mode, self.busy_lines = "busy", None
         log.info("power: %s", self.action)
         self.render()               # show the message before the system starts stopping
         if not self.power(self.action):
@@ -371,6 +374,8 @@ class App:
             return
         what = "Nothing new" if v.matched and v.files_todo == 0 else (
             f"{screens.gb(v.bytes_todo)}B to copy")
+        if self.battery_short(v.bytes_todo):
+            what = "Battery may run out"
         self.ask(f"Back up slot {slot}?", lambda: self._identify_then_backup(slot), what)
 
     def _identify_then_backup(self, slot: int) -> None:
@@ -437,7 +442,49 @@ class App:
         self._cards_active = want
 
     def on_ups(self, ev: UpsEvent) -> None:
+        prev = self.ups.level if self.ups else OK
         self.ups = ev
+        if ev.level == LOW and prev == OK:
+            self.show_notice("BATTERY LOW", [f"Battery at {ev.pct}%.", "Connect power soon."])
+        elif ev.level == CRITICAL and prev != CRITICAL:
+            self.battery_empty()
+
+    # ---- battery ---------------------------------------------------
+    def battery_short(self, nbytes: int) -> bool:
+        """True if a backup of nbytes probably won't finish on the battery left."""
+        u, cfg = self.ups, self.config.power
+        if not u or not u.discharging or nbytes <= 0:
+            return False
+        hours = nbytes / (cfg.backup_mb_s * 1e6) / 3600
+        have_mah = (u.pct - cfg.critical_pct) / 100 * cfg.battery_mah
+        return hours * cfg.backup_ma > have_mah
+
+    def battery_empty(self) -> None:
+        """Critical battery: stop any backup cleanly, then halt before the power dies."""
+        log.warning("battery critical")
+        if self.mode == "busy":
+            return
+        if self.conn.pc_has_drive:
+            # Halting now would yank the drive from the PC; the PC must eject first.
+            self.show_notice("BATTERY EMPTY", ["Eject the drive on", "the PC now."])
+            return
+        if self.cards.running_backup:
+            self._halt_after_backup = self.clock() + BATTERY_HALT_WAIT_S
+            self.cancelling = True
+            self.cards.cancel_backup()
+            self.mode = "backing_up"
+            return
+        self._battery_halt(["Battery empty", "Shutting down..."])
+
+    def _battery_halt(self, lines: list[str]) -> None:
+        self._halt_after_backup = None
+        self.notice = None
+        self.action, self.mode, self.busy_lines = "halt", "busy", lines
+        log.info("power: halt (battery)")
+        self.render()
+        if not self.power("halt"):
+            log.error("power: systemctl halt failed")
+            self.mode, self.busy_lines = "home", None
 
     def on_cards(self, ev) -> None:
         if isinstance(ev, CardsEvent):
@@ -448,7 +495,9 @@ class App:
         elif isinstance(ev, BackupDoneEvent):
             self.result, self.cancelling = ev, False
             self.free = self.storage.free_bytes()
-            if self.mode in ("backing_up", "confirm"):
+            if self._halt_after_backup is not None:
+                self._battery_halt(["Battery empty", "Backup stopped", "Shutting down..."])
+            elif self.mode in ("backing_up", "confirm"):
                 self.mode = "result"
         elif isinstance(ev, WorkerErrorEvent):
             self.show_notice("PROBLEM", [ev.message[:21], ev.message[21:42]])
@@ -469,6 +518,9 @@ class App:
                 self._picked(self._pick_default)
             elif self._pick_deadline is None and idle >= MENU_TIMEOUT_S:
                 self.mode = "home"
+        if self._halt_after_backup is not None and now >= self._halt_after_backup:
+            self._battery_halt(["Battery empty", "Shutting down..."])   # backup didn't stop
+            changed = True
         if self.notice and now >= self._notice_until:
             self.notice = None
             changed = True
