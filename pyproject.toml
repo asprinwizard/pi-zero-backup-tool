@@ -12,7 +12,7 @@ dependencies = ["pillow"]
 [project.optional-dependencies]
 # On the Pi these come from apt (see install/steps/s10_packages.py).
 pi = ["gpiozero", "lgpio", "spidev", "smbus2", "pyudev", "xxhash"]
-dev = ["pytest>=8", "ruff>=0.5", "pillow"]
+dev = ["pytest>=8", "ruff>=0.5", "pillow", "xxhash"]
 
 [tool.setuptools.dynamic]
 version = { attr = "p2backup.__version__" }

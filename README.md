@@ -41,6 +41,21 @@ The installer is safe to re-run. It never reformats an existing backup partition
 - **Camera:** connect the OTG cable, set the HVX200 to USB DEVICE mode, and pick a card on the screen.
 - **PC:** **switch the UPS OFF**, connect the USB-A cable, and copy files from the `P2BACKUP` drive. Eject on the PC, then wait for **"Safe to unplug"** on the screen.
 
+## Command-line backup (until the on-screen flow exists)
+
+On the Pi, with the camera connected and in USB DEVICE mode:
+
+```sh
+PY="sudo env PYTHONPATH=/opt/p2backup/src /opt/p2backup/venv/bin/python"
+$PY -m p2backup.backup list                  # cards per slot, and what a backup would copy
+$PY -m p2backup.backup run --slot 1          # back up slot 1 (Ctrl+C cancels cleanly)
+$PY -m p2backup.backup run --slot 1 --card new    # first time for a card: P2-nn, new or unsorted
+```
+
+Cards are mounted read-only. A re-run only copies what is new. Each backup folder has
+`_p2backup/manifest.xxh64` (check it on a PC with `xxhsum -c`) and a log per run in
+`_p2backup/runs/`. `backups.csv` at the top of the drive lists every run.
+
 ## Development (off the Pi)
 
 ```sh
@@ -49,6 +64,7 @@ python3 -m venv .venv && .venv/bin/pip install -e '.[dev]'
 .venv/bin/ruff check .
 PYTHONPATH=src python3 -m p2backup --sim        # terminal display, keyboard input
 PYTHONPATH=src python3 -m p2backup.splash preview starting
+PYTHONPATH=src python3 -m p2backup.backup --data /tmp/data run --source /path/to/card-folder --card new
 ```
 
 ## Layout
