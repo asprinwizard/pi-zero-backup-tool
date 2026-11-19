@@ -10,6 +10,9 @@ Environment=PYTHONPATH=/opt/p2backup/src
 Environment=LG_WD=/run
 Environment=PYTHONUNBUFFERED=1
 ExecStart=/opt/p2backup/venv/bin/python -m p2backup
+# Release the cards (mounted read-only by the app) whenever it stops, crashes
+# or restarts; it remounts them on start. ($$ = a literal $ for the shell.)
+ExecStopPost=-/bin/sh -c 'for m in /run/p2backup/cards/slot*; do mountpoint -q "$$m" && { umount "$$m" || umount -l "$$m"; }; done; true'
 Restart=always
 RestartSec=2
 
